@@ -101,7 +101,7 @@ https://github.com/user-attachments/assets/259e1f2f-f7a1-4968-963c-a30277b55ab7
 - 使用语义相似度功能需要额外下载模型文件
 - 使用翻译功能需要配置腾讯云API密钥
 
-### docker方式运行api
+### docker方式运行server服务端
 
 > [可选]映射`/app/.env`是为了自定义项目的配置文件
 > 
@@ -133,3 +133,14 @@ https://github.com/user-attachments/assets/259e1f2f-f7a1-4968-963c-a30277b55ab7
     --restart always \
     samge/dlg_cv_demo:cpu-latest
     ```
+
+### docker方式运行client客户端
+>【注意】首次运行时需要设备授权，请在设备上确认adb授权请求
+```shell
+docker run -itd \
+--name dlg_cv_demo_client \
+-v ~/dlg_cv_demo/output_client/:/app/output/ \
+-e "API_URL=http://192.168.xx.xx:9720" \
+-e "PHONE_IP_PORT=192.168.xx.xx:5555" \
+samge/dlg_cv_demo:client-latest
+```

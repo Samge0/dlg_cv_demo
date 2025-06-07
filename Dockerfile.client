@@ -1,0 +1,46 @@
+# 基础环境阶段
+FROM python:3.10-slim AS base
+
+# 设置工作目录
+WORKDIR /app
+
+# 设置环境变量
+ENV PYTHONUNBUFFERED=1
+ENV PYTHONPATH=/app
+ENV ADB_VENDOR_KEYS=/root/.android
+
+# 安装系统依赖
+RUN apt-get update && apt-get install -y \
+    libgl1-mesa-glx \
+    libglib2.0-0 \
+    android-tools-adb \
+    && rm -rf /var/lib/apt/lists/*
+
+# 创建ADB配置目录并设置权限
+RUN mkdir -p /root/.android
+RUN chmod 700 /root/.android
+
+# 依赖安装阶段
+FROM base AS final
+
+# 安装Python依赖
+RUN pip install requests==2.32.3 Pillow==11.2.1
+
+# 复制应用代码
+COPY client.py .
+
+# 创建缓存目录
+RUN mkdir -p output
+
+# 暴露端口
+EXPOSE 9720
+
+# 挂载缓存目录和ADB配置
+VOLUME ["/app/output", "/root/.cache", "/root/.android"]
+
+# 自定义环境变量示例
+# ENV API_URL=http://localhost:9720
+# ENV PHONE_IP_PORT=192.168.xx.xx:5555
+
+# 启动命令
+CMD ["python3", "client.py"] 

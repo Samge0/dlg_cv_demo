@@ -8,6 +8,9 @@ from PIL import Image
 # API服务地址
 API_URL = os.getenv("API_URL", 'http://localhost:9720')
 
+# 手机IP地址和端口
+PHONE_IP_PORT = os.getenv("PHONE_IP_PORT", "") # 192.168.xx.xx:5555
+
 # 自定义字典 - 可减轻翻译api耗时
 CUSTOM_DICT = {
     "不是": "아니요",
@@ -31,6 +34,59 @@ current_commit_info = None
 
 # 是否每次都点跳过按钮
 always_click_jump = False
+
+def connect_adb():
+    """连接手机设备"""
+    max_retries = 3
+    retry_count = 0
+    
+    while retry_count < max_retries:
+        try:
+            # 启动adb服务
+            subprocess.run(['adb', 'start-server'], check=True)
+            
+            if not PHONE_IP_PORT:
+                # 检查是否有任何已连接的设备
+                result = subprocess.run(['adb', 'devices'], capture_output=True, text=True, check=True)
+                devices = [line.split('\t')[0] for line in result.stdout.strip().split('\n')[1:] if line.strip()]
+                if devices:
+                    print(f"发现已连接的设备: {', '.join(devices)}")
+                    return True
+                else:
+                    print("未发现任何已连接的设备")
+                    return False
+            
+            # 连接指定设备
+            subprocess.run(['adb', 'connect', f'{PHONE_IP_PORT}'], check=True)
+            # 等待连接建立
+            time.sleep(2)
+            
+            # 检查设备连接状态
+            result = subprocess.run(['adb', 'devices'], capture_output=True, text=True, check=True)
+            if f'{PHONE_IP_PORT}' in result.stdout:
+                # 检查设备是否已授权
+                if 'unauthorized' in result.stdout:
+                    print(f"设备 {PHONE_IP_PORT} 需要授权，请在设备上确认授权请求")
+                    time.sleep(5)  # 等待用户确认授权
+                    retry_count += 1
+                    continue
+                print(f"成功连接到设备 {PHONE_IP_PORT}")
+                return True
+            else:
+                print(f"设备连接失败: {result.stdout}")
+                return False
+            
+        except subprocess.CalledProcessError as e:
+            print(f"ADB连接错误: {e}")
+            retry_count += 1
+            if retry_count < max_retries:
+                print(f"将在5秒后重试... (第{retry_count}次)")
+                time.sleep(5)
+            else:
+                print("达到最大重试次数，连接失败")
+                return False
+    
+    return False
 
 def click_coordinates(x, y):
     """使用adb点击指定坐标"""
@@ -157,6 +213,11 @@ def main(loop: bool = True, interval: float = 0.1):
         loop: 是否循环执行，默认为True
         interval: 循环执行时的间隔时间（秒），默认为0.1秒
     """
+    # 首先连接设备
+    if not connect_adb():
+        print("无法连接到设备，程序退出")
+        return
+
     if not loop:
         screen_and_call()
         return
