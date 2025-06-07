@@ -1,5 +1,5 @@
-# 使用NVIDIA CUDA基础镜像
-FROM nvidia/cuda:12.6.0-cudnn-runtime-ubuntu22.04
+# 基础环境阶段
+FROM nvidia/cuda:12.6.0-cudnn-runtime-ubuntu22.04 as base
 
 # 设置工作目录
 WORKDIR /app
@@ -17,12 +17,18 @@ RUN apt-get update && apt-get install -y \
     libglib2.0-0 \
     && rm -rf /var/lib/apt/lists/*
 
+# 依赖安装阶段
+FROM base as dependencies
+
 # 复制依赖文件
 COPY requirements.txt .
 
 # 安装Python依赖
 RUN pip3 install torch torchvision --index-url https://download.pytorch.org/whl/cu126 && \
     pip3 install --no-cache-dir -r requirements.txt
+
+# 最终阶段
+FROM dependencies as final
 
 # 复制应用代码
 COPY server.py .

@@ -53,10 +53,12 @@ jobs:
           file: ./Dockerfile
           platforms: linux/amd64
           push: ${{ github.event_name != 'pull_request' }}
+          cache-from: type=registry,ref=${{ secrets.DOCKERHUB_USERNAME }}/dlg_cv_demo:buildcache
+          cache-to: type=registry,ref=${{ secrets.DOCKERHUB_USERNAME }}/dlg_cv_demo:buildcache,mode=max
           tags: |
-            ${{ secrets.DOCKERHUB_USERNAME }}/dlg_cv_demo:gpu-${{ steps.date.outputs.today }}
-            ${{ secrets.DOCKERHUB_USERNAME }}/dlg_cv_demo:gpu-latest
-            ${{ secrets.DOCKERHUB_USERNAME }}/dlg_cv_demo:gpu-v1.0.0
+            ${{ secrets.DOCKERHUB_USERNAME }}/dlg_cv_demo:${{ steps.date.outputs.today }}
+            ${{ secrets.DOCKERHUB_USERNAME }}/dlg_cv_demo:latest
+            ${{ secrets.DOCKERHUB_USERNAME }}/dlg_cv_demo:v1.0.0
 
   buildx-cpu:
     runs-on: ubuntu-latest
@@ -91,6 +93,8 @@ jobs:
           file: ./Dockerfile.cpu
           platforms: linux/amd64
           push: ${{ github.event_name != 'pull_request' }}
+          cache-from: type=registry,ref=${{ secrets.DOCKERHUB_USERNAME }}/dlg_cv_demo:cpu-buildcache
+          cache-to: type=registry,ref=${{ secrets.DOCKERHUB_USERNAME }}/dlg_cv_demo:cpu-buildcache,mode=max
           tags: |
             ${{ secrets.DOCKERHUB_USERNAME }}/dlg_cv_demo:cpu-${{ steps.date.outputs.today }}
             ${{ secrets.DOCKERHUB_USERNAME }}/dlg_cv_demo:cpu-latest
