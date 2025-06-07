@@ -144,3 +144,11 @@ docker run -itd \
 -e "PHONE_IP_PORT=192.168.xx.xx:5555" \
 samge/dlg_cv_demo:client-latest
 ```
+
+### 相关截图
+![image](https://github.com/user-attachments/assets/65d1115f-82cf-422a-ae34-55fc9457737c)
+
+![image](https://github.com/user-attachments/assets/5453355e-9bf0-48ce-90c6-8be908c5bb1d)
+
+![image](https://github.com/user-attachments/assets/4dcd240b-17fe-4c5e-a762-076ebf69ec78)
+
