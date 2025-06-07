@@ -4,6 +4,7 @@
 
 本Demo主要测试其中某个韩语课程，使用`easyocr`进行OCR识别，使用`adb`进行屏幕截图&模拟点击，使用`fastapi`进行接口封装，完成自动答题。
 
+https://github.com/user-attachments/assets/259e1f2f-f7a1-4968-963c-a30277b55ab7
 
 ## 功能特点
 
@@ -78,9 +79,9 @@
     ```json
     {
         "image_base64": "base64编码的图像数据",
-        "need_jump_info": true, // 是否需要跳转按钮信息
-        "need_commit_info": true,   // 是否需要提交按钮信息
-        "custom_dict": {} // 可选，自定义词典，如果不提供自定义字典，则需要配置腾旭翻译
+        "need_jump_info": true, # 是否需要跳转按钮信息
+        "need_commit_info": true, # 是否需要提交按钮信息
+        "custom_dict": {} # 可选，自定义词典，如果不提供自定义字典，则需要配置腾旭翻译
     }
     ```
 4. 用`adb`连接手机并打开目标课程页面后，执行自动答题脚本：
@@ -102,12 +103,14 @@
 
 ### docker方式运行api
 
-- [可选]映射`/app/.env`是为了自定义项目的配置文件
-- [可选]映射`/app/output/`可在debug模式时查看输出图片
-- [可选]映射`/root/.cache/`目录是为了复用`huggingface`的模型缓存文件
+> [可选]映射`/app/.env`是为了自定义项目的配置文件
+> 
+> [可选]映射`/app/output/`可在debug模式时查看输出图片
+> 
+> [可选]映射`/root/.cache/`目录是为了复用`huggingface`的模型缓存文件
 
+- CPU版本
     ```shell
-    # CPU版本
     docker run -itd \
     -p 9720:9720 \
     --name dlg_cv_demo \
@@ -116,8 +119,10 @@
     -v ~/.cache/:/root/.cache/ \
     --restart always \
     samge/dlg_cv_demo
+    ```
 
-    # GPU版本
+- GPU版本
+    ```shell
     docker run -itd \
     --gpus all \
     -p 9720:9720 \
