@@ -109,18 +109,6 @@ https://github.com/user-attachments/assets/259e1f2f-f7a1-4968-963c-a30277b55ab7
 > 
 > [可选]映射`/root/.cache/`目录是为了复用`huggingface`的模型缓存文件
 
-- CPU版本
-    ```shell
-    docker run -itd \
-    -p 9720:9720 \
-    --name dlg_cv_demo \
-    -v ~/dlg_cv_demo/.env:/app/.env \
-    -v ~/dlg_cv_demo/output/:/app/output/ \
-    -v ~/.cache/:/root/.cache/ \
-    --restart always \
-    samge/dlg_cv_demo
-    ```
-
 - GPU版本
     ```shell
     docker run -itd \
@@ -131,5 +119,17 @@ https://github.com/user-attachments/assets/259e1f2f-f7a1-4968-963c-a30277b55ab7
     -v ~/dlg_cv_demo/output/:/app/output/ \
     -v ~/.cache/:/root/.cache/ \
     --restart always \
-    samge/dlg_cv_demo
+    samge/dlg_cv_demo:latest
+    ```
+
+- CPU版本 - 速度较慢，不推荐
+    ```shell
+    docker run -itd \
+    -p 9720:9720 \
+    --name dlg_cv_demo \
+    -v ~/dlg_cv_demo/.env:/app/.env \
+    -v ~/dlg_cv_demo/output/:/app/output/ \
+    -v ~/.cache/:/root/.cache/ \
+    --restart always \
+    samge/dlg_cv_demo:cpu-latest
     ```
