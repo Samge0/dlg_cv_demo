@@ -144,6 +144,15 @@ docker run -itd \
 samge/dlg_cv_demo:client-latest
 ```
 
+> 环境变量说明：
+> - `API_URL`: dlg_cv_demo服务地址，使用docker进行映射时不应使用localhost地址，应使用真实ip地址/域名
+> - `PHONE_IP_PORT`: adb连接的目标手机ip和端口
+> - `CUSTOM_DICT`: [可选] 自定义词典，JSON格式字符串，用于中韩互译匹配，例如: -e "CUSTOM_DICT={\"你好\":\"안녕하세요\"}"
+> - `COMMIT_FILTER_TEXTS`: [可选] 确认按钮文本过滤，多个值用|分隔，为空则表示不过滤，例如：-e "COMMIT_FILTER_TEXTS=继续|提交|开玩"
+> - `ALWAYS_CLICK_JUMP`: [可选] 是否每次都点击跳过按钮，默认为false，例如：-e "ALWAYS_CLICK_JUMP=false"
+> - `CACHE_JUMP_INFO`: [可选] 是否自动缓存跳过按钮信息，默认为true，例如：-e "CACHE_JUMP_INFO=true"
+> - `CACHE_COMMIT_INFO`: [可选] 是否自动缓存确认按钮信息，默认为true，例如：-e "CACHE_COMMIT_INFO=true"
+
 ### 相关截图
 ![image](https://github.com/user-attachments/assets/65d1115f-82cf-422a-ae34-55fc9457737c)
 

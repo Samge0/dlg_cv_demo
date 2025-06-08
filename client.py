@@ -4,6 +4,7 @@ import base64
 import requests
 import time
 from PIL import Image
+import json
 
 # API服务地址
 API_URL = os.getenv("API_URL", 'http://localhost:9720')
@@ -20,21 +21,35 @@ CUSTOM_DICT = {
     "猫": "고양이"
 }
 
+# 从环境变量读取自定义字典
+custom_dict_env = os.getenv("CUSTOM_DICT", "")
+if custom_dict_env:
+    try:
+        # 尝试解析环境变量中的JSON字符串
+        CUSTOM_DICT = json.loads(custom_dict_env)
+    except json.JSONDecodeError:
+        print("警告：环境变量CUSTOM_DICT格式无效，使用默认字典")
+
 # 自定义字典 - 正反组装
 custom_dict_all = {**CUSTOM_DICT, **{v: k for k, v in CUSTOM_DICT.items()}}
 
-# 确认按钮过滤文本 - 可选，置为空则表示不过滤
-# commit_filter_texts = ["继续", "提交", "开玩", "检查", "我能做到!", "知道了", "不。谢谢", "退出", "下次再说", "立即开始"]
-commit_filter_texts = []
+# 确认按钮过滤文本 - 可选，置为空则表示不过滤，多个值用|分隔，例如："继续|提交|开玩|检查|我能做到!|知道了|不。谢谢|退出|下次再说|立即开始"
+commit_filter_texts = [text for text in os.getenv("COMMIT_FILTER_TEXTS", "").split("|") if text]
+
+# 是否每次都点跳过按钮，默认为false
+always_click_jump = os.getenv("ALWAYS_CLICK_JUMP", "false").lower() == "true"
+
+# 是否自动缓存跳过按钮信息，默认为true
+cache_jump_info = os.getenv("CACHE_JUMP_INFO", "true").lower() == "true"
+
+# 是否自动缓存确认按钮信息，默认为true
+cache_commit_info = os.getenv("CACHE_COMMIT_INFO", "true").lower() == "true"
 
 # 当前跳过按钮信息
 current_jump_info = None
 
 # 当前确认按钮信息
 current_commit_info = None
-
-# 是否每次都点跳过按钮
-always_click_jump = False
 
 def run_adb_command(command, capture_output=False, text=False, check=True, stdout=None):
     """
@@ -160,7 +175,8 @@ def handle_api_response(response_data):
             if need_to_jump(txt) is False:
                 print(f"jump按钮文字不符合要求，跳过：{txt}")
             elif always_click_jump or current_jump_info is None:
-                current_jump_info = jump_data
+                if cache_jump_info:
+                    current_jump_info = jump_data
                 center = get_center_point(jump_data)
                 print(f"点击 jump按钮 坐标: {center} | {txt}")
                 click_coordinates(center[0], center[1])
@@ -168,7 +184,9 @@ def handle_api_response(response_data):
         # 检查 commit按钮
         commit_data = current_commit_info or data.get('commit') or {}
         if commit_data and get_center_point(commit_data):
-            current_commit_info = commit_data
+            
+            if cache_commit_info:
+                current_commit_info = commit_data
             
             txt = commit_data.get('txt') or ''
             if need_to_commit(txt) is False:
