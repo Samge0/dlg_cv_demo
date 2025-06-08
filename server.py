@@ -29,6 +29,12 @@ debug_mode: bool = os.getenv("DEBUG_MODE", "False").lower() == "true"
 # 是否调试模式
 use_similarity_detection: bool = os.getenv("USE_SIMILARITY_DETECTION", "False").lower() == "true"
 
+# 区域高度配置
+QUESTION_START_Y = float(os.getenv("QUESTION_START_Y", "0.18"))  # 问题区域起始Y坐标（距离顶部）- 小于等于1时表示屏幕高度的百分比
+QUESTION_END_Y = float(os.getenv("QUESTION_END_Y", "0.5"))  # 问题区域结束Y坐标（距离底部）- 小于等于1时表示屏幕高度的百分比
+ANSWER_END_Y = float(os.getenv("ANSWER_END_Y", "0.17"))  # 答案区域结束Y坐标（距离底部）- 小于等于1时表示屏幕高度的百分比
+JUMP_END_Y = float(os.getenv("JUMP_END_Y", "0.11"))  # 跳过按钮区域结束Y坐标（距离底部）- 小于等于1时表示屏幕高度的百分比
+
 # 初始化语义相似度模型 - 【非必要】如果使用自定义字典，可以移除语义相似度模型
 similarity_model = SentenceTransformer('paraphrase-multilingual-MiniLM-L12-v2') if use_similarity_detection else None
 
@@ -236,20 +242,24 @@ def visualize_debug_results(img: np.ndarray, results: List[dict]) -> None:
     
     # 绘制区域边界
     # 问题区
-    cv2.rectangle(debug_img, (0, 500), (w, h//2), colors['question'], 2)
-    cv2.putText(debug_img, f"question y=500 {get_percentage(500, h)}", (10, 500 + 40), cv2.FONT_HERSHEY_SIMPLEX, 1.3, colors['question'], 2)
+    question_start_y = get_real_y(QUESTION_START_Y, h=h)
+    question_end_y = get_real_y(QUESTION_END_Y, h=h)
+    cv2.rectangle(debug_img, (0, question_start_y), (w, question_end_y), colors['question'], 2)
+    cv2.putText(debug_img, f"question y={question_start_y} {get_percentage(question_start_y, h)}", (10, question_start_y + 40), cv2.FONT_HERSHEY_SIMPLEX, 1.3, colors['question'], 2)
     
     # 答案区
-    cv2.rectangle(debug_img, (0, h//2), (w, h-450), colors['answer'], 2)
-    cv2.putText(debug_img, f"answer y={h//2} (h//2) 50%", (10, h//2 + 40), cv2.FONT_HERSHEY_SIMPLEX, 1.3, colors['answer'], 2)
+    answer_end_y = get_real_y(ANSWER_END_Y, h=h)
+    cv2.rectangle(debug_img, (0, question_end_y), (w, h-answer_end_y), colors['answer'], 2)
+    cv2.putText(debug_img, f"answer y={question_end_y} {get_percentage(question_end_y, h)}", (10, question_end_y + 40), cv2.FONT_HERSHEY_SIMPLEX, 1.3, colors['answer'], 2)
     
     # 跳过按钮区
-    cv2.rectangle(debug_img, (0, h-450), (w, h-300), colors['jump'], 2)
-    cv2.putText(debug_img, f"jump y={h-450} (h-450) -{get_percentage(450, h)}", (10, h-450 + 40), cv2.FONT_HERSHEY_SIMPLEX, 1.3, colors['jump'], 2)
+    jump_end_y = get_real_y(JUMP_END_Y, h=h)
+    cv2.rectangle(debug_img, (0, h-answer_end_y), (w, h-jump_end_y), colors['jump'], 2)
+    cv2.putText(debug_img, f"jump y={h-answer_end_y} (h-{answer_end_y}) -{get_percentage(answer_end_y, h)}", (10, h-answer_end_y + 40), cv2.FONT_HERSHEY_SIMPLEX, 1.3, colors['jump'], 2)
     
     # 提交按钮区
-    cv2.rectangle(debug_img, (0, h-300), (w, h), colors['commit'], 2)
-    cv2.putText(debug_img, f"commit y={h-300} (h-300) -{get_percentage(300, h)}", (10, h-300 + 40), cv2.FONT_HERSHEY_SIMPLEX, 1.3, colors['commit'], 2)
+    cv2.rectangle(debug_img, (0, h-jump_end_y), (w, h), colors['commit'], 2)
+    cv2.putText(debug_img, f"commit y={h-jump_end_y} (h-{jump_end_y}) -{get_percentage(jump_end_y, h)}", (10, h-jump_end_y + 40), cv2.FONT_HERSHEY_SIMPLEX, 1.3, colors['commit'], 2)
     
     # 画答案框和打印坐标
     print("\n=== 坐标信息 ===")
@@ -316,6 +326,14 @@ def clean_base64(base64_str: str) -> str:
         return base64_str.split(',', 1)[1]
     return base64_str
 
+def is_percentage(v: float) -> bool:
+    """判断是否为百分比"""
+    return 0 <= v <= 1
+
+def get_real_y(v: float, h: int) -> int:
+    """获取真实y高度值"""
+    return int(h * v if is_percentage(v) else v)
+
 def get_block_info(img, y1: int, y2: int) -> List[tuple[str, List[List[int]]]]:
     """
     获取图像指定区域的OCR识别结果
@@ -330,8 +348,10 @@ def get_block_info(img, y1: int, y2: int) -> List[tuple[str, List[List[int]]]]:
     """
     h, w = img.shape[:2]
     print(f"w={w}, h={h}, y1={y1}, y2={y2}")
+    
     crop = img[y1:y2, 0:w]
     crop_rgb = cv2.cvtColor(crop, cv2.COLOR_BGR2RGB)
+    
     return ocr_dual(crop_rgb, offset_y=y1) or []
 
 def get_question_info(img) -> List[tuple[str, List[List[int]]]]:
@@ -345,7 +365,10 @@ def get_question_info(img) -> List[tuple[str, List[List[int]]]]:
         包含问题文本和位置信息的列表
     """
     h = img.shape[0]
-    return get_block_info(img=img, y1=500, y2=h // 2)
+    
+    y1 = get_real_y(QUESTION_START_Y, h=h)
+    y2 = get_real_y(QUESTION_END_Y, h=h)
+    return get_block_info(img=img, y1=y1, y2=y2)
 
 def get_answer_info(img) -> List[tuple[str, List[List[int]]]]:
     """
@@ -358,7 +381,9 @@ def get_answer_info(img) -> List[tuple[str, List[List[int]]]]:
         包含答案文本和位置信息的列表
     """
     h = img.shape[0]
-    return get_block_info(img=img, y1=h // 2, y2=h-400)
+    y1 = get_real_y(QUESTION_END_Y, h=h)
+    y2 = h - get_real_y(ANSWER_END_Y, h=h)
+    return get_block_info(img=img, y1=y1, y2=y2)
 
 def get_jump_button_info(img) -> tuple[str, List[List[int]]]:
     """
@@ -371,7 +396,10 @@ def get_jump_button_info(img) -> tuple[str, List[List[int]]]:
         包含按钮文本和位置信息的元组
     """
     h = img.shape[0]
-    results = get_block_info(img=img, y1=h-450, y2=h-300)
+    
+    y1 = h - get_real_y(ANSWER_END_Y, h=h)
+    y2 = h - get_real_y(JUMP_END_Y, h=h)
+    results = get_block_info(img=img, y1=y1, y2=y2)
     return results[0] if results else None
 
 def get_commit_button_info(img) -> tuple[str, List[List[int]]]:
@@ -385,7 +413,8 @@ def get_commit_button_info(img) -> tuple[str, List[List[int]]]:
         包含按钮文本和位置信息的元组
     """
     h = img.shape[0]
-    results = get_block_info(img=img, y1=h-300, y2=h)
+    y1 = h - get_real_y(JUMP_END_Y, h=h)
+    results = get_block_info(img=img, y1=y1, y2=h)
     return results[0] if results else None
 
 def get_center_from_bbox(bbox: List[List[int]]) -> List[int]:
