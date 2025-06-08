@@ -3,6 +3,7 @@
 一个基于`FastAPI`+`adb`+`easyocr`的多邻国APP自动答题Demo。
 
 本Demo仅用于测试其中`某个韩语课程`（其他课程需要自行适配），使用`easyocr`进行OCR识别，使用`fastapi`进行接口封装，使用`adb`进行屏幕截图&模拟点击，完成自动答题。
+
 https://github.com/user-attachments/assets/259e1f2f-f7a1-4968-963c-a30277b55ab7
 
 ## 功能特点
@@ -162,7 +163,7 @@ samge/dlg_cv_demo:client-latest
 
 ### 其他说明
 - 本Demo仅用于测试其中`某个韩语课程`（其他课程需要自行适配）
-- 本Demo测试手机的屏幕宽高值为`1264*2780`，其他尺寸的手机需要修改[server.py](server.py)自行适配。
+- 本Demo测试手机的屏幕宽高值为`1264*2780`，其他尺寸的手机需要修改`.env`环境变量配置或者[server.py](server.py)自行适配。
 
 ![api_result_1749395418](https://github.com/user-attachments/assets/775783c8-79c5-4dc3-a1b0-26397cc5a168)
 
