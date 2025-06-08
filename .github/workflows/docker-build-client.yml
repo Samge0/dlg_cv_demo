@@ -52,4 +52,4 @@ jobs:
           tags: |
             ${{ secrets.DOCKERHUB_USERNAME }}/dlg_cv_demo:client-${{ steps.date.outputs.today }}
             ${{ secrets.DOCKERHUB_USERNAME }}/dlg_cv_demo:client-latest
-            ${{ secrets.DOCKERHUB_USERNAME }}/dlg_cv_demo:client-v1.0.0
+            ${{ secrets.DOCKERHUB_USERNAME }}/dlg_cv_demo:client-v1.0.1
