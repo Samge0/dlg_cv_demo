@@ -20,6 +20,9 @@ from dotenv import load_dotenv
 
 app = FastAPI()
 
+# 全局变量：记录当前答案的下标
+current_answer_index = 0
+
 # 加载环境变量
 load_dotenv()
 
@@ -262,7 +265,6 @@ def visualize_debug_results(img: np.ndarray, results: List[dict]) -> None:
     cv2.putText(debug_img, f"commit y={h-jump_end_y} (h-{jump_end_y}) -{get_percentage(jump_end_y, h)}", (10, h-jump_end_y + 40), cv2.FONT_HERSHEY_SIMPLEX, 1.3, colors['commit'], 2)
     
     # 画答案框和打印坐标
-    print("\n=== 坐标信息 ===")
     for idx, result in enumerate(results, 1):
         if result['answer']:
             bbox = result['answer'].bbox
@@ -284,11 +286,7 @@ def visualize_debug_results(img: np.ndarray, results: List[dict]) -> None:
                        cv2.FONT_HERSHEY_SIMPLEX, 0.5, colors['answer'], 2)
             
             # 打印坐标信息
-            print(f"\n答案 {idx}:")
-            print(f"文本: {txt}")
-            print(f"左上角: {bbox[0]}")
-            print(f"右下角: {bbox[1]}")
-            print(f"中心点: {center}")
+            print(f"答案 {idx} | {txt} | {bbox} | 中心点: {center}")
     
     # 确保results目录存在
     os.makedirs('output/results', exist_ok=True)
@@ -297,7 +295,7 @@ def visualize_debug_results(img: np.ndarray, results: List[dict]) -> None:
     _t = int(time.time())
     output_path = f'output/results/api_result_{_t}.jpg'
     cv2.imwrite(output_path, debug_img)
-    print(f"\n调试图片已保存至: {output_path}")
+    print(f"调试图片已保存至: {output_path}\n")
 
 def remove_special_chars(text):
     """
@@ -477,51 +475,76 @@ def process_image(request: ImageRequest) -> dict:
         questions = [text for text, _ in question_infos]
         answers = [text for text, _ in answer_infos]
         
-        # 翻译问题内容 - 优先使用自定义字典
-        translated_questions = [request.custom_dict.get(remove_special_chars(q), q) for q in questions] if request.custom_dict else []
-        print(f"request.custom_dict... {request.custom_dict}") if debug_mode else None
-        print(f"Translating questions... {translated_questions}")
-        
-        # 如果自定义字典无结果，尝试使用翻译api服务进行翻译
-        if not translated_questions:
-            translated_questions = [tx_translate_text(q) for q in questions]
-        
-        t7 = time.time()
-        
-        results = []
-        for q_trans, q_orig, q_bbox in zip(translated_questions, questions, [bbox for _, bbox in question_infos]):
-            q_trans = remove_special_chars(q_trans)
-            if not q_trans:
-                continue
+        # 如果questions为空，使用答案顺序选择逻辑
+        if not questions and answers:
+            global current_answer_index
+            # 获取答案选项的长度
+            answer_length = len(answers)
+            # 使用当前下标对答案长度求余，确保下标在有效范围内
+            selected_answer_index = current_answer_index % answer_length
+            # 更新当前下标
+            current_answer_index = (current_answer_index + 1) % answer_length
             
-            best_match = None
-            best_similarity = -1
-            best_answer_bbox = None
+            awswer_txt = answers[selected_answer_index]
+            answer_bbox = [bbox for _, bbox in answer_infos][selected_answer_index]
+            print(f"当前无法识别到问题项，将尝试按顺序取第 {selected_answer_index} 个答案进行提交：{awswer_txt}")
             
-            for a_txt, a_bbox in zip(answers, [bbox for _, bbox in answer_infos]):
-                # 优先判断全文匹配
-                if q_trans == remove_special_chars(a_txt):
-                    best_match = a_txt
-                    best_similarity = 1
-                    best_answer_bbox = a_bbox
-                    break
+            # 创建结果
+            results = [{
+                "question": None,
+                "answer": generate_bbox_item((awswer_txt, answer_bbox)),
+                "similarity": 999,
+            }]
             
-            if not best_match and use_similarity_detection:
-                for a_txt, a_bbox in zip(answers, [bbox for _, bbox in answer_infos]):
-                    # 如果不相等再尝试进行相似度判断
-                    similarity = get_similarity(q_trans, a_txt)
-                    if similarity > best_similarity:
-                        best_similarity = similarity
-                        best_match = a_txt
-                        best_answer_bbox = a_bbox
+            t7 = time.time()
             
-            if best_match:
-                results.append({
-                    "question": q_orig,
-                    "answer": generate_bbox_item((best_match, best_answer_bbox)),
-                    "similarity": best_similarity,
-                })
+        else:
+            # 翻译问题内容 - 优先使用自定义字典
+            translated_questions = [request.custom_dict.get(remove_special_chars(q), q) for q in questions] if request.custom_dict else []
+            print(f"request.custom_dict... {request.custom_dict}") if debug_mode else None
+            print(f"questions ... {questions}")
+            print(f"Translating questions... {translated_questions}")
+            
+            # 如果自定义字典无结果，尝试使用翻译api服务进行翻译
+            if not translated_questions:
+                translated_questions = [tx_translate_text(q) for q in questions]
+            
+            t7 = time.time()
+            
+            results = []
+            for q_trans, q_orig, q_bbox in zip(translated_questions, questions, [bbox for _, bbox in question_infos]):
+                q_trans = remove_special_chars(q_trans)
+                if not q_trans:
+                    continue
                 
+                best_match = None
+                best_similarity = -1
+                best_answer_bbox = None
+                
+                for a_txt, a_bbox in zip(answers, [bbox for _, bbox in answer_infos]):
+                    # 优先判断全文匹配
+                    if q_trans == remove_special_chars(a_txt):
+                        best_match = a_txt
+                        best_similarity = 1
+                        best_answer_bbox = a_bbox
+                        break
+                
+                if not best_match and use_similarity_detection:
+                    for a_txt, a_bbox in zip(answers, [bbox for _, bbox in answer_infos]):
+                        # 如果不相等再尝试进行相似度判断
+                        similarity = get_similarity(q_trans, a_txt)
+                        if similarity > best_similarity:
+                            best_similarity = similarity
+                            best_match = a_txt
+                            best_answer_bbox = a_bbox
+                
+                if best_match:
+                    results.append({
+                        "question": q_orig,
+                        "answer": generate_bbox_item((best_match, best_answer_bbox)),
+                        "similarity": best_similarity,
+                    })
+        
         t8 = time.time()
         
         if debug_mode:
