@@ -23,8 +23,9 @@ CUSTOM_DICT = {
 # 自定义字典 - 正反组装
 custom_dict_all = {**CUSTOM_DICT, **{v: k for k, v in CUSTOM_DICT.items()}}
 
-# 确认按钮文本
-commit_texts = ["继续", "提交", "开玩", "检查", "我能做到!", "知道了", "不。谢谢", "退出", "下次再说", "立即开始"]
+# 确认按钮过滤文本 - 可选，置为空则表示不过滤
+# commit_filter_texts = ["继续", "提交", "开玩", "检查", "我能做到!", "知道了", "不。谢谢", "退出", "下次再说", "立即开始"]
+commit_filter_texts = []
 
 # 当前跳过按钮信息
 current_jump_info = None
@@ -35,6 +36,27 @@ current_commit_info = None
 # 是否每次都点跳过按钮
 always_click_jump = False
 
+def run_adb_command(command, capture_output=False, text=False, check=True, stdout=None):
+    """
+    执行adb命令
+    
+    Args:
+        command: adb命令列表
+        capture_output: 是否捕获输出
+        text: 是否返回文本
+        check: 是否检查命令执行状态
+        stdout: 输出重定向目标
+    
+    Returns:
+        命令执行结果
+    """
+    if PHONE_IP_PORT:
+        command = ['adb', '-s', PHONE_IP_PORT] + command
+    else:
+        command = ['adb'] + command
+    
+    return subprocess.run(command, capture_output=capture_output, text=text, check=check, stdout=stdout)
+
 def connect_adb():
     """连接手机设备"""
     max_retries = 3
@@ -43,11 +65,11 @@ def connect_adb():
     while retry_count < max_retries:
         try:
             # 启动adb服务
-            subprocess.run(['adb', 'start-server'], check=True)
+            run_adb_command(['start-server'])
             
             if not PHONE_IP_PORT:
                 # 检查是否有任何已连接的设备
-                result = subprocess.run(['adb', 'devices'], capture_output=True, text=True, check=True)
+                result = run_adb_command(['devices'], capture_output=True, text=True)
                 devices = [line.split('\t')[0] for line in result.stdout.strip().split('\n')[1:] if line.strip()]
                 if devices:
                     print(f"发现已连接的设备: {', '.join(devices)}")
@@ -57,12 +79,12 @@ def connect_adb():
                     return False
             
             # 连接指定设备
-            subprocess.run(['adb', 'connect', f'{PHONE_IP_PORT}'], check=True)
+            run_adb_command(['connect', f'{PHONE_IP_PORT}'])
             # 等待连接建立
             time.sleep(2)
             
             # 检查设备连接状态
-            result = subprocess.run(['adb', 'devices'], capture_output=True, text=True, check=True)
+            result = run_adb_command(['devices'], capture_output=True, text=True, check=True)
             if f'{PHONE_IP_PORT}' in result.stdout:
                 # 检查设备是否已授权
                 if 'unauthorized' in result.stdout:
@@ -90,7 +112,7 @@ def connect_adb():
 
 def click_coordinates(x, y):
     """使用adb点击指定坐标"""
-    subprocess.run(['adb', 'shell', 'input', 'tap', str(x), str(y)], check=True)
+    run_adb_command(['shell', 'input', 'tap', str(x), str(y)])
     time.sleep(0.03)  # 等待点击动作完成
 
 def get_center_point(v: dict):
@@ -103,7 +125,9 @@ def need_to_jump(txt: str) -> bool:
 
 def need_to_commit(txt: str) -> bool:
     """是否需要提交"""
-    return txt in commit_texts
+    if not commit_filter_texts:
+        return True
+    return txt in commit_filter_texts
 
 def handle_api_response(response_data):
     """处理API返回结果，如果有center坐标则点击"""
@@ -112,19 +136,6 @@ def handle_api_response(response_data):
     
     if response_data['code'] == 200:
         data = response_data['data']
-        
-        # 检查 jump按钮
-        jump_data = current_jump_info or data.get('jump') or {}
-        if jump_data and get_center_point(jump_data):
-            
-            txt = jump_data.get('txt') or ''
-            if need_to_jump(txt) is False:
-                print(f"jump按钮文字不符合要求，跳过：{txt}")
-            elif always_click_jump or current_jump_info is None:
-                current_jump_info = jump_data
-                center = get_center_point(jump_data)
-                print(f"点击 jump按钮 坐标: {center} | {txt}")
-                click_coordinates(center[0], center[1])
         
         # 检查 答案选项
         answers = data.get('answers') or []
@@ -140,6 +151,19 @@ def handle_api_response(response_data):
             
             print(f"点击 答案选项 坐标: {center} | {txt} | {similarity}")
             click_coordinates(center[0], center[1])
+        
+        # 检查 jump按钮
+        jump_data = current_jump_info or data.get('jump') or {}
+        if jump_data and get_center_point(jump_data):
+            
+            txt = jump_data.get('txt') or ''
+            if need_to_jump(txt) is False:
+                print(f"jump按钮文字不符合要求，跳过：{txt}")
+            elif always_click_jump or current_jump_info is None:
+                current_jump_info = jump_data
+                center = get_center_point(jump_data)
+                print(f"点击 jump按钮 坐标: {center} | {txt}")
+                click_coordinates(center[0], center[1])
             
         # 检查 commit按钮
         commit_data = current_commit_info or data.get('commit') or {}
@@ -167,13 +191,8 @@ def capture_screen_fast():
     _t = int(time.time())
     screencap_local_path = f'output/screen_{_t}.png'
     with open(screencap_local_path, 'wb') as f:
-        subprocess.run(['adb', 'exec-out', 'screencap', '-p'], stdout=f, check=True)
+        run_adb_command(['exec-out', 'screencap', '-p'], stdout=f, check=True)
     return screencap_local_path
-
-def compress_png_lossless(input_path, output_path):
-    """对PNG图片进行无损压缩"""
-    img = Image.open(input_path)
-    img.save(output_path, optimize=True)
 
 def screen_and_call():
     """abd截屏并调用API进行识别"""

@@ -197,6 +197,20 @@ def ocr_dual(img: np.ndarray, offset_y: int = 0, conf_thres: float = 0.35) -> Li
                 results.append((text, [top_left, bottom_right]))
     return results
 
+def get_percentage(y1: int, y2: int) -> str:
+    """
+    计算y1和y2的百分比
+    
+    Args:
+        y1: 分子
+        y2: 分母
+        
+    Returns:
+        百分比字符串
+    """
+    percentage = int(round((y1 / y2) * 100))
+    return f"{percentage}%"
+
 def visualize_debug_results(img: np.ndarray, results: List[dict]) -> None:
     """
     在图片上绘制检测框并保存为调试图片
@@ -206,20 +220,74 @@ def visualize_debug_results(img: np.ndarray, results: List[dict]) -> None:
         results: 答案列表
     """
     debug_img = img.copy()
-    # 画答案框（绿色）
-    for result in results:
-        bbox = result['answer'].bbox
-        cv2.rectangle(debug_img, 
-                    (bbox[0][0], bbox[0][1]), 
-                    (bbox[1][0], bbox[1][1]), 
-                    (0, 255, 0), 2)
+    h, w = img.shape[:2]
+    
+    # 定义区域颜色
+    colors = {
+        'default': (60, 20, 220),   # 默认颜色
+        'question': (255, 0, 0),    # 问题区
+        'answer': (130, 0, 75),     # 答案区
+        'jump': (0, 0, 255),        # 跳过按钮区
+        'commit': (128, 0, 128)     # 提交按钮区
+    }
+    
+    # 显示宽高信息
+    cv2.putText(debug_img, f"w={w}, h={h}", (10, 40), cv2.FONT_HERSHEY_SIMPLEX, 1.3, colors['default'], 2)
+    
+    # 绘制区域边界
+    # 问题区
+    cv2.rectangle(debug_img, (0, 500), (w, h//2), colors['question'], 2)
+    cv2.putText(debug_img, f"question y=500 {get_percentage(500, h)}", (10, 500 + 40), cv2.FONT_HERSHEY_SIMPLEX, 1.3, colors['question'], 2)
+    
+    # 答案区
+    cv2.rectangle(debug_img, (0, h//2), (w, h-450), colors['answer'], 2)
+    cv2.putText(debug_img, f"answer y={h//2} (h//2) 50%", (10, h//2 + 40), cv2.FONT_HERSHEY_SIMPLEX, 1.3, colors['answer'], 2)
+    
+    # 跳过按钮区
+    cv2.rectangle(debug_img, (0, h-450), (w, h-300), colors['jump'], 2)
+    cv2.putText(debug_img, f"jump y={h-450} (h-450) -{get_percentage(450, h)}", (10, h-450 + 40), cv2.FONT_HERSHEY_SIMPLEX, 1.3, colors['jump'], 2)
+    
+    # 提交按钮区
+    cv2.rectangle(debug_img, (0, h-300), (w, h), colors['commit'], 2)
+    cv2.putText(debug_img, f"commit y={h-300} (h-300) -{get_percentage(300, h)}", (10, h-300 + 40), cv2.FONT_HERSHEY_SIMPLEX, 1.3, colors['commit'], 2)
+    
+    # 画答案框和打印坐标
+    print("\n=== 坐标信息 ===")
+    for idx, result in enumerate(results, 1):
+        if result['answer']:
+            bbox = result['answer'].bbox
+            center = result['answer'].center
+            txt = result['answer'].txt
+            
+            # 绘制答案框
+            cv2.rectangle(debug_img, 
+                        (bbox[0][0], bbox[0][1]), 
+                        (bbox[1][0], bbox[1][1]), 
+                        colors['answer'], 2)
+            
+            # 绘制中心点
+            cv2.circle(debug_img, (center[0], center[1]), 5, (0, 0, 255), -1)
+            
+            # 添加文本标注
+            cv2.putText(debug_img, f"Answer {idx}", 
+                       (bbox[0][0], bbox[0][1] - 10),
+                       cv2.FONT_HERSHEY_SIMPLEX, 0.5, colors['answer'], 2)
+            
+            # 打印坐标信息
+            print(f"\n答案 {idx}:")
+            print(f"文本: {txt}")
+            print(f"左上角: {bbox[0]}")
+            print(f"右下角: {bbox[1]}")
+            print(f"中心点: {center}")
     
     # 确保results目录存在
     os.makedirs('output/results', exist_ok=True)
     
     # 保存调试图片
     _t = int(time.time())
-    cv2.imwrite(f'output/results/api_result_{_t}.jpg', debug_img)
+    output_path = f'output/results/api_result_{_t}.jpg'
+    cv2.imwrite(output_path, debug_img)
+    print(f"\n调试图片已保存至: {output_path}")
 
 def remove_special_chars(text):
     """
@@ -260,10 +328,37 @@ def get_block_info(img, y1: int, y2: int) -> List[tuple[str, List[List[int]]]]:
     Returns:
         包含文本和边界框的元组列表
     """
-    w = img.shape[1]
+    h, w = img.shape[:2]
+    print(f"w={w}, h={h}, y1={y1}, y2={y2}")
     crop = img[y1:y2, 0:w]
     crop_rgb = cv2.cvtColor(crop, cv2.COLOR_BGR2RGB)
     return ocr_dual(crop_rgb, offset_y=y1) or []
+
+def get_question_info(img) -> List[tuple[str, List[List[int]]]]:
+    """
+    获取问题区域的文本和位置信息
+    
+    Args:
+        img: 输入图像
+        
+    Returns:
+        包含问题文本和位置信息的列表
+    """
+    h = img.shape[0]
+    return get_block_info(img=img, y1=500, y2=h // 2)
+
+def get_answer_info(img) -> List[tuple[str, List[List[int]]]]:
+    """
+    获取答案区域的文本和位置信息
+    
+    Args:
+        img: 输入图像
+        
+    Returns:
+        包含答案文本和位置信息的列表
+    """
+    h = img.shape[0]
+    return get_block_info(img=img, y1=h // 2, y2=h-400)
 
 def get_jump_button_info(img) -> tuple[str, List[List[int]]]:
     """
@@ -276,7 +371,7 @@ def get_jump_button_info(img) -> tuple[str, List[List[int]]]:
         包含按钮文本和位置信息的元组
     """
     h = img.shape[0]
-    results = get_block_info(img=img, y1=h-600, y2=h-330)
+    results = get_block_info(img=img, y1=h-450, y2=h-300)
     return results[0] if results else None
 
 def get_commit_button_info(img) -> tuple[str, List[List[int]]]:
@@ -290,34 +385,8 @@ def get_commit_button_info(img) -> tuple[str, List[List[int]]]:
         包含按钮文本和位置信息的元组
     """
     h = img.shape[0]
-    results = get_block_info(img=img, y1=h-330, y2=h)
+    results = get_block_info(img=img, y1=h-300, y2=h)
     return results[0] if results else None
-
-def get_question_info(img) -> List[tuple[str, List[List[int]]]]:
-    """
-    获取问题区域的文本和位置信息
-    
-    Args:
-        img: 输入图像
-        
-    Returns:
-        包含问题文本和位置信息的列表
-    """
-    h = img.shape[0]
-    return get_block_info(img=img, y1=530, y2=h // 2)
-
-def get_answer_info(img) -> List[tuple[str, List[List[int]]]]:
-    """
-    获取答案区域的文本和位置信息
-    
-    Args:
-        img: 输入图像
-        
-    Returns:
-        包含答案文本和位置信息的列表
-    """
-    h = img.shape[0]
-    return get_block_info(img=img, y1=h // 2, y2=h-330)
 
 def get_center_from_bbox(bbox: List[List[int]]) -> List[int]:
     """
