@@ -4,7 +4,7 @@
 
 本Demo仅用于测试其中`某个韩语课程`（其他课程需要自行适配），使用`easyocr`进行OCR识别，使用`fastapi`进行接口封装，使用`adb`进行屏幕截图&模拟点击，完成自动答题。
 
-https://github.com/user-attachments/assets/259e1f2f-f7a1-4968-963c-a30277b55ab7
+![dlg_cv_demo_2](https://github.com/user-attachments/assets/7bb0587f-98df-49a4-829a-b73e9cb97189)
 
 ## 功能特点
 
@@ -160,6 +160,9 @@ samge/dlg_cv_demo:client-latest
 ![image](https://github.com/user-attachments/assets/5453355e-9bf0-48ce-90c6-8be908c5bb1d)
 
 ![image](https://github.com/user-attachments/assets/4dcd240b-17fe-4c5e-a762-076ebf69ec78)
+
+
+https://github.com/user-attachments/assets/259e1f2f-f7a1-4968-963c-a30277b55ab7
 
 ### 其他说明
 - 本Demo仅用于测试其中`某个韩语课程`（其他课程需要自行适配）
